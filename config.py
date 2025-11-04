@@ -9,9 +9,9 @@ DATABASE_URL = os.getenv('DATABASE_URL', f'sqlite:///{BASE_DIR}/parking.db')
 
 # Parking lot configuration
 PARKING_LOT_CONFIG = {
-    'total_spaces': 50,
+    'total_spaces': 40,
     'rows': 5,
-    'columns': 10,
+    'columns': 8,
     'camera_fps': 30,
     'detection_interval': 5  # seconds
 }

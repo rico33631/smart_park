@@ -1104,3 +1104,75 @@ textarea.form-control {
     color: #6b7280;
     font-size: 0.9375rem;
 }
+
+/* ===== YOLO Detection Styles ===== */
+.yolo-results {
+    margin-top: 1.5rem;
+    padding: 1.5rem;
+    background: #f9fafb;
+    border-radius: 0.75rem;
+}
+
+.yolo-results.hidden {
+    display: none;
+}
+
+.yolo-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.yolo-stat {
+    text-align: center;
+    padding: 1rem;
+    background: white;
+    border-radius: 0.5rem;
+    border: 2px solid #e5e7eb;
+}
+
+.yolo-stat.occupied {
+    border-color: var(--danger-color);
+}
+
+.yolo-stat.available {
+    border-color: var(--success-color);
+}
+
+.yolo-stat .label {
+    color: #6b7280;
+    font-size: 0.875rem;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.yolo-stat .value {
+    color: #1f2937;
+    font-size: 1.75rem;
+    font-weight: 700;
+}
+
+.yolo-stat.occupied .value {
+    color: var(--danger-color);
+}
+
+.yolo-stat.available .value {
+    color: var(--success-color);
+}
+
+.yolo-image-container {
+    background: white;
+    border-radius: 0.75rem;
+    padding: 1rem;
+    border: 2px solid #e5e7eb;
+}
+
+.yolo-image-container img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    border-radius: 0.5rem;
+}

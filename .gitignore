@@ -34,15 +34,16 @@ env/
 *.sqlite3
 parking.db
 
-# Machine Learning Models
-models/*.pkl
-models/*.h5
-models/*.joblib
+# Machine Learning Models (allow models directory with trained models)
+# models/*.pkl  # Commented out to allow trained models
+# models/*.h5
+# models/*.joblib
 
-# Data files
+# Data files (allow parking images)
 data/*.csv
 data/*.json
 data/*.txt
+# Keep parking_images/ directory with images
 
 # Logs
 *.log
@@ -63,7 +64,7 @@ logs/
 .env
 .env.local
 
-# Images and videos
+# Images and videos (allow data/parking_images/)
 *.jpg
 *.jpeg
 *.png
@@ -71,6 +72,11 @@ logs/
 *.mp4
 *.avi
 parking_frame_*.jpg
+
+# But allow specific demo images
+!data/parking_images/*.jpg
+!data/parking_images/*.jpeg
+!demo_results/*.jpg
 
 # OS
 .DS_Store

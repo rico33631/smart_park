@@ -27,15 +27,15 @@
                     </svg>
                     Operator Dashboard
                 </button>
-                <button class="nav-btn" data-view="booking">
+                <!-- <button class="nav-btn" data-view="booking">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
                         <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
                         <line x1="16" y1="2" x2="16" y2="6"/>
                         <line x1="8" y1="2" x2="8" y2="6"/>
                         <line x1="3" y1="10" x2="21" y2="10"/>
-                    </svg>
-                    Book Parking
-                </button>
+                    </svg> -->
+                    <!-- Book Parking -->
+                <!-- </button>
                 <button class="nav-btn" data-view="bookings">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
                         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -43,8 +43,7 @@
                         <line x1="16" y1="13" x2="8" y2="13"/>
                         <line x1="16" y1="17" x2="8" y2="17"/>
                     </svg>
-                    View Bookings
-                </button>
+                </button> -->
             </div>
             <div class="nav-status">
                 <span class="status-dot"></span>
@@ -142,6 +141,60 @@
                     <div class="legend-item">
                         <span class="legend-dot booked"></span>
                         <span>Booked</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- YOLO Detection Panel -->
+            <div class="section">
+                <div class="section-header">
+                    <h2>YOLO Parking Detection</h2>
+                    <div class="section-actions">
+                        <button class="btn btn-secondary" onclick="loadDemoDetection()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+                            </svg>
+                            Load Demo
+                        </button>
+                        <input type="file" id="yoloImageUpload" accept="image/*" style="display: none;">
+                        <button class="btn btn-secondary" onclick="document.getElementById('yoloImageUpload').click()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="17 8 12 3 7 8"/>
+                                <line x1="12" y1="3" x2="12" y2="15"/>
+                            </svg>
+                            Upload Image
+                        </button>
+                        <button class="btn btn-primary" onclick="runYoloDetection()" id="detectBtn" disabled>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <circle cx="12" cy="12" r="10"/>
+                                <polyline points="12 6 12 12 16 14"/>
+                            </svg>
+                            Run Detection
+                        </button>
+                    </div>
+                </div>
+                <div id="yoloResults" class="yolo-results hidden">
+                    <div class="yolo-summary">
+                        <div class="yolo-stat">
+                            <div class="label">Total Spaces</div>
+                            <div class="value" id="yoloTotal">-</div>
+                        </div>
+                        <div class="yolo-stat occupied">
+                            <div class="label">Occupied</div>
+                            <div class="value" id="yoloOccupied">-</div>
+                        </div>
+                        <div class="yolo-stat available">
+                            <div class="label">Available</div>
+                            <div class="value" id="yoloAvailable">-</div>
+                        </div>
+                        <div class="yolo-stat">
+                            <div class="label">Occupancy Rate</div>
+                            <div class="value" id="yoloRate">-</div>
+                        </div>
+                    </div>
+                    <div class="yolo-image-container">
+                        <img id="yoloAnnotatedImage" alt="Annotated parking lot">
                     </div>
                 </div>
             </div>
@@ -264,7 +317,7 @@
                 </div>
 
                 <!-- Step 4: Payment -->
-                <div class="booking-step hidden" id="step-payment">
+                <!-- <div class="booking-step hidden" id="step-payment">
                     <h3>Step 4: Payment</h3>
                     <div class="booking-summary">
                         <h4>Booking Summary</h4>
@@ -305,7 +358,7 @@
                         <button class="btn btn-secondary" onclick="goToStep(3)">Back</button>
                         <button class="btn btn-success" onclick="completeBooking()">Complete Booking</button>
                     </div>
-                </div>
+                </div> -->
 
                 <!-- Success Message -->
                 <div class="booking-step hidden" id="step-success">

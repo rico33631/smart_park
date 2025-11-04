@@ -786,6 +786,246 @@ def get_space_image(space_number):
         session.close()
 
 
+# ============ YOLO DETECTION ENDPOINTS ============
+
+# Try to initialize YOLO detector (optional)
+yolo_detector = None
+try:
+    from yolo_parking_detector import YOLOParkingDetector
+    yolo_detector = YOLOParkingDetector()
+    if yolo_detector.model_loaded:
+        print("✓ YOLO detector initialized successfully")
+    else:
+        print("⚠ YOLO detector initialized but no model loaded")
+        print("  Add trained model as 'best.pt' to enable YOLO detection")
+except Exception as e:
+    print(f"⚠ YOLO detector not available: {e}")
+    print("  Install ultralytics to enable: pip install ultralytics")
+
+
+@app.route('/api/detection/yolo/upload', methods=['POST'])
+def detect_from_upload():
+    """
+    Detect parking spaces from uploaded image using YOLO
+
+    Request: multipart/form-data with 'image' file
+    Response: JSON with detections and annotated image
+    """
+    if not yolo_detector or not yolo_detector.model_loaded:
+        return jsonify({
+            'success': False,
+            'error': 'YOLO model not loaded. Please add trained model as best.pt'
+        }), 503
+
+    if 'image' not in request.files:
+        return jsonify({'success': False, 'error': 'No image uploaded'}), 400
+
+    file = request.files['image']
+
+    try:
+        # Read image
+        image_bytes = file.read()
+        nparr = np.frombuffer(image_bytes, np.uint8)
+        image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+        # Run detection
+        detections = yolo_detector.detect_from_frame(image)
+
+        # Draw detections
+        annotated_image = yolo_detector.draw_detections(image, detections)
+
+        # Save annotated image to demo_results
+        from datetime import datetime
+        from pathlib import Path
+        demo_results_dir = Path('demo_results')
+        demo_results_dir.mkdir(exist_ok=True)
+
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f"detection_{timestamp}.jpg"
+        output_path = demo_results_dir / filename
+        cv2.imwrite(str(output_path), annotated_image)
+
+        # Convert to base64 for response
+        _, buffer = cv2.imencode('.jpg', annotated_image)
+        image_base64 = base64.b64encode(buffer).decode('utf-8')
+
+        # Format detections for frontend
+        formatted_detections = [{
+            'space_number': d['space_number'],
+            'is_occupied': d['is_occupied'],
+            'confidence': d['confidence'],
+            'row': d['row'],
+            'column': d['column']
+        } for d in detections]
+
+        return jsonify({
+            'success': True,
+            'detections': formatted_detections,
+            'annotated_image': f'data:image/jpeg;base64,{image_base64}',
+            'saved_path': str(output_path),
+            'summary': {
+                'total': len(detections),
+                'occupied': sum(1 for d in detections if d['is_occupied']),
+                'available': sum(1 for d in detections if not d['is_occupied'])
+            }
+        })
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/detection/yolo/update-database', methods=['POST'])
+def update_database_from_yolo():
+    """
+    Run YOLO detection on uploaded image and update database
+
+    Request: multipart/form-data with 'image' file
+    Response: JSON with updated parking space statuses
+    """
+    if not yolo_detector or not yolo_detector.model_loaded:
+        return jsonify({
+            'success': False,
+            'error': 'YOLO model not loaded'
+        }), 503
+
+    if 'image' not in request.files:
+        return jsonify({'success': False, 'error': 'No image uploaded'}), 400
+
+    file = request.files['image']
+    session = get_session()
+
+    try:
+        # Read image
+        image_bytes = file.read()
+        nparr = np.frombuffer(image_bytes, np.uint8)
+        image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+        # Run detection
+        detections = yolo_detector.detect_from_frame(image)
+
+        # Update database
+        yolo_detector.update_database_from_detections(detections, session)
+
+        return jsonify({
+            'success': True,
+            'message': 'Database updated with YOLO detections',
+            'updated_spaces': len(detections),
+            'summary': {
+                'total': len(detections),
+                'occupied': sum(1 for d in detections if d['is_occupied']),
+                'available': sum(1 for d in detections if not d['is_occupied'])
+            }
+        })
+
+    except Exception as e:
+        session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+    finally:
+        session.close()
+
+
+@app.route('/api/detection/yolo/status', methods=['GET'])
+def get_yolo_status():
+    """Get YOLO detector status"""
+    if not yolo_detector:
+        return jsonify({
+            'success': True,
+            'yolo_available': False,
+            'model_loaded': False,
+            'message': 'YOLO not installed. Run: pip install ultralytics'
+        })
+
+    return jsonify({
+        'success': True,
+        'yolo_available': True,
+        'model_loaded': yolo_detector.model_loaded,
+        'message': 'YOLO ready' if yolo_detector.model_loaded else 'No model loaded. Add best.pt'
+    })
+
+
+@app.route('/api/detection/yolo/demo', methods=['GET'])
+def run_demo_detection():
+    """
+    Run YOLO detection on a random demo image from data/parking_images/
+    and return results to display on layout automatically
+    """
+    if not yolo_detector or not yolo_detector.model_loaded:
+        return jsonify({
+            'success': False,
+            'error': 'YOLO model not loaded'
+        }), 503
+
+    try:
+        from pathlib import Path
+        import random
+
+        # Get demo images
+        demo_images_dir = Path('data/parking_images')
+        if not demo_images_dir.exists():
+            return jsonify({
+                'success': False,
+                'error': 'No demo images found'
+            }), 404
+
+        image_files = list(demo_images_dir.glob('*.jpg')) + list(demo_images_dir.glob('*.jpeg'))
+
+        if not image_files:
+            return jsonify({
+                'success': False,
+                'error': 'No demo images found'
+            }), 404
+
+        # Pick random demo image
+        demo_image_path = random.choice(image_files)
+
+        # Read and detect
+        image = cv2.imread(str(demo_image_path))
+        detections = yolo_detector.detect_from_frame(image)
+
+        # Draw detections
+        annotated_image = yolo_detector.draw_detections(image, detections)
+
+        # Save to demo_results
+        from datetime import datetime
+        demo_results_dir = Path('demo_results')
+        demo_results_dir.mkdir(exist_ok=True)
+
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f"demo_{demo_image_path.stem}_{timestamp}.jpg"
+        output_path = demo_results_dir / filename
+        cv2.imwrite(str(output_path), annotated_image)
+
+        # Convert to base64
+        _, buffer = cv2.imencode('.jpg', annotated_image)
+        image_base64 = base64.b64encode(buffer).decode('utf-8')
+
+        # Format detections
+        formatted_detections = [{
+            'space_number': d['space_number'],
+            'is_occupied': d['is_occupied'],
+            'confidence': d['confidence'],
+            'row': d['row'],
+            'column': d['column']
+        } for d in detections]
+
+        return jsonify({
+            'success': True,
+            'detections': formatted_detections,
+            'annotated_image': f'data:image/jpeg;base64,{image_base64}',
+            'demo_image_name': demo_image_path.name,
+            'saved_path': str(output_path),
+            'summary': {
+                'total': len(detections),
+                'occupied': sum(1 for d in detections if d['is_occupied']),
+                'available': sum(1 for d in detections if not d['is_occupied'])
+            }
+        })
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 if __name__ == '__main__':
     # Initialize database
     init_db()

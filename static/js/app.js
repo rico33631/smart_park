@@ -19,6 +19,11 @@ function initializeApp() {
     setupBookingDatetime();
     loadOperatorDashboard();
 
+    // Load demo YOLO detection on page load
+    setTimeout(() => {
+        loadDemoDetection();
+    }, 2000); // Wait 2 seconds after page load
+
     // Auto-refresh every 30 seconds for operator dashboard
     setInterval(() => {
         if (currentView === 'operator') {
@@ -692,6 +697,197 @@ function filterBookings() {
 }
 
 // ========== Utility Functions ==========
+
+// ========== YOLO Detection Functions ==========
+let selectedFile = null;
+
+// Handle file selection
+document.addEventListener('DOMContentLoaded', function() {
+    const fileInput = document.getElementById('yoloImageUpload');
+    if (fileInput) {
+        fileInput.addEventListener('change', function(e) {
+            selectedFile = e.target.files[0];
+            const detectBtn = document.getElementById('detectBtn');
+            if (selectedFile) {
+                detectBtn.disabled = false;
+                showToast(`Image selected: ${selectedFile.name}`, 'success');
+            }
+        });
+    }
+});
+
+// Run YOLO detection on uploaded image
+async function runYoloDetection() {
+    if (!selectedFile) {
+        showToast('Please select an image first', 'error');
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('image', selectedFile);
+
+    const detectBtn = document.getElementById('detectBtn');
+    const originalText = detectBtn.innerHTML;
+    detectBtn.disabled = true;
+    detectBtn.innerHTML = '<span>Processing...</span>';
+
+    try {
+        showToast('Running YOLO detection...', 'info');
+
+        const response = await fetch('/api/detection/yolo/upload', {
+            method: 'POST',
+            body: formData
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            // First update database
+            await updateDatabaseWithYolo();
+
+            // Then display results (this will update the grid)
+            displayYoloResults(data);
+            showToast(`Detected ${data.summary.total} parking spaces!`, 'success');
+        } else {
+            showToast(data.error || 'Detection failed', 'error');
+        }
+    } catch (error) {
+        console.error('Error during YOLO detection:', error);
+        showToast('Detection failed', 'error');
+    } finally {
+        detectBtn.disabled = false;
+        detectBtn.innerHTML = originalText;
+    }
+}
+
+// Update database with YOLO detection results
+async function updateDatabaseWithYolo() {
+    if (!selectedFile) return;
+
+    const formData = new FormData();
+    formData.append('image', selectedFile);
+
+    try {
+        const response = await fetch('/api/detection/yolo/update-database', {
+            method: 'POST',
+            body: formData
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            // Database updated successfully
+            // Grid will be updated by displayYoloResults
+            showToast('Database updated with detection results', 'success');
+        }
+    } catch (error) {
+        console.error('Error updating database:', error);
+    }
+}
+
+// Display YOLO detection results
+function displayYoloResults(data) {
+    const resultsDiv = document.getElementById('yoloResults');
+    resultsDiv.classList.remove('hidden');
+
+    // Update statistics
+    document.getElementById('yoloTotal').textContent = data.summary.total;
+    document.getElementById('yoloOccupied').textContent = data.summary.occupied;
+    document.getElementById('yoloAvailable').textContent = data.summary.available;
+
+    const occupancyRate = ((data.summary.occupied / data.summary.total) * 100).toFixed(1);
+    document.getElementById('yoloRate').textContent = `${occupancyRate}%`;
+
+    // Display annotated image
+    const annotatedImage = document.getElementById('yoloAnnotatedImage');
+    annotatedImage.src = data.annotated_image;
+
+    // Update parking grid with YOLO detections
+    updateParkingGridFromDetections(data.detections);
+
+    // Scroll to results
+    resultsDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// Update parking grid layout with detection results
+function updateParkingGridFromDetections(detections) {
+    if (!detections || detections.length === 0) {
+        console.log('No detections to display');
+        return;
+    }
+
+    console.log(`Updating grid with ${detections.length} detections`);
+
+    // Update each parking space in the grid
+    let updatedCount = 0;
+    detections.forEach(detection => {
+        const spaceElement = document.querySelector(`[data-space="${detection.space_number}"]`);
+        if (spaceElement) {
+            // Remove existing classes
+            spaceElement.classList.remove('available', 'occupied', 'booked');
+
+            // Add new class based on detection
+            if (detection.is_occupied) {
+                spaceElement.classList.add('occupied');
+            } else {
+                spaceElement.classList.add('available');
+            }
+
+            // Update space number display
+            const spaceNumber = spaceElement.querySelector('.space-number');
+            if (spaceNumber) {
+                spaceNumber.textContent = detection.space_number;
+            }
+            updatedCount++;
+        } else {
+            console.warn(`Space element not found for ${detection.space_number}`);
+        }
+    });
+
+    console.log(`Updated ${updatedCount} parking spaces in grid`);
+
+    // Also update the main statistics cards
+    const occupied = detections.filter(d => d.is_occupied).length;
+    const available = detections.filter(d => !d.is_occupied).length;
+    const total = detections.length;
+
+    const occupiedEl = document.getElementById('occupiedSpaces');
+    const availableEl = document.getElementById('availableSpaces');
+    const totalEl = document.getElementById('totalSpaces');
+    const rateEl = document.getElementById('occupancyRate');
+
+    if (occupiedEl) occupiedEl.textContent = occupied;
+    if (availableEl) availableEl.textContent = available;
+    if (totalEl) totalEl.textContent = total;
+    if (rateEl) rateEl.textContent = `${((occupied / total) * 100).toFixed(1)}%`;
+
+    console.log(`Stats updated - Total: ${total}, Occupied: ${occupied}, Available: ${available}`);
+
+    // Force a repaint to ensure visual update
+    document.getElementById('parkingGrid').style.display = 'none';
+    document.getElementById('parkingGrid').offsetHeight; // Trigger reflow
+    document.getElementById('parkingGrid').style.display = 'grid';
+}
+
+// Load demo detection automatically on page load
+async function loadDemoDetection() {
+    try {
+        console.log('Loading demo detection...');
+        const response = await fetch('/api/detection/yolo/demo');
+        const data = await response.json();
+
+        if (data.success) {
+            console.log('Demo detection loaded successfully');
+            displayYoloResults(data);
+            showToast(`Loaded demo: ${data.demo_image_name}`, 'info');
+        } else {
+            console.error('Demo detection failed:', data.error);
+        }
+    } catch (error) {
+        console.error('Error loading demo detection:', error);
+    }
+}
+
 function updateLastUpdateTime(timestamp) {
     const timeString = timestamp ? formatDateTime(timestamp) : new Date().toLocaleString();
     document.getElementById('lastUpdate').textContent = timeString;
